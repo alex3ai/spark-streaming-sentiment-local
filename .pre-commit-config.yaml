@@ -8,9 +8,10 @@ repos:
   - repo: https://github.com/psf/black
     rev: 23.3.0
     hooks:
-      - id: black # Formata o código automaticamente
+      - id: black
 
+  # Observe que o Flake8 tem seu próprio bloco 'repo' separado aqui embaixo
   - repo: https://github.com/pycqa/flake8
     rev: 6.0.0
     hooks:
-      - id: flake8 # Verifica erros de lógica/sintaxe
+      - id: flake8
