@@ -1,5 +1,5 @@
-# 1. Base Image: Python 3.10 Slim (Muito mais leve que a full)
-FROM python:3.10-slim
+# 1. Base Image
+FROM python:3.10-slim-bookworm
 
 # Variáveis de Versão (Fácil manutenção)
 ENV SPARK_VERSION=3.5.0
