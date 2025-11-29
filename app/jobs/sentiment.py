@@ -56,17 +56,23 @@ def main():
     # 3. Transformação (IA/ML Application)
     df_processed = df_parsed.withColumn("sentiment_score", analyze_sentiment(col("text")))
 
-    # 4. Output (Console para Debug Local)
+    # 4. Preparação para o Kafka (Serialização)
+    # O Kafka aceita bytes ou strings. Precisamos converter nosso Struct para JSON String.
+    df_kafka_output = df_processed.selectExpr(
+        "CAST(id AS STRING) AS key",  # A chave será o ID do tweet
+        "to_json(struct(*)) AS value",  # O valor será o JSON completo com o score
+    )
+
+    # 5. Output: Escreve de volta no Kafka (Sink)
     query = (
-        df_processed.writeStream.outputMode("append")
-        .format("console")
-        .option("truncate", "false")
-        .trigger(processingTime="1 seconds")
+        df_kafka_output.writeStream.outputMode("append")
+        .format("kafka")
+        .option("kafka.bootstrap.servers", settings.KAFKA_BOOTSTRAP_SERVERS)
+        .option("topic", settings.KAFKA_TOPIC_OUTPUT)
+        # CRÍTICO: Checkpoint garante tolerância a falhas.
+        # Se o container cair, ele volta a ler exatamente de onde parou.
+        .option("checkpointLocation", "/data/checkpoints/sentiment_job_v1")
         .start()
     )
 
     query.awaitTermination()
-
-
-if __name__ == "__main__":
-    main()
