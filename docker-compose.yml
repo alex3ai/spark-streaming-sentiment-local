@@ -5,34 +5,21 @@ services:
     container_name: kafka
     hostname: kafka
     ports:
-      - "9092:9092" # Acesso interno (Spark/Containers)
-      - "9094:9094" # Acesso externo (Windows Producer)
+      - "9092:9092" # Acesso interno
+      - "9094:9094" # Acesso externo
+    volumes:
+      # SRE: Persistência dos dados do Kafka (Tópicos/Mensagens)
+      # Isso garante que as mensagens não sumam ao reiniciar o container
+      - ./kafka_data:/var/lib/kafka/data
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
-
-      # --- CONFIGURAÇÃO DE REDE ---
-      # 1. LISTENERS: Onde o processo do Kafka 'escuta'
       KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094
-
-      # 2. ADVERTISED: Como os clientes devem 'chamar' o Kafka
-      #    - Interno (Spark): chama 'kafka:9092'
-      #    - Externo (Seu PC): chama '127.0.0.1:9094' (Alinhado com seu config.py)
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://127.0.0.1:9094
-
-      # 3. PROTOCOL MAP: Mapeia nomes de listeners para protocolos de segurança
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
-
-      # 4. CONTROLLER: Define qual listener é exclusivo para tráfego de controle (KRaft)
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
-
-      # 5. INTER-BROKER: Comunicação entre nodes do Kafka
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
-
-      # Quorum KRaft
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
-
-      # Configurações de recursos e retenção
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
@@ -64,7 +51,6 @@ services:
       resources:
         limits:
           cpus: '0.50'
-          # AUMENTAMOS DE 1G PARA GARANTIR ESTABILIDADE DO MASTER
           memory: 1G
 
   # --- Spark Worker ---
@@ -80,7 +66,6 @@ services:
     environment:
       - SPARK_MODE=worker
       - SPARK_WORKER_CORES=1
-      # AUMENTAMOS AQUI: De 512m para 1G
       - SPARK_WORKER_MEMORY=1G
     volumes:
       - ./app:/app
@@ -89,5 +74,4 @@ services:
       resources:
         limits:
           cpus: '1.0'
-          # AUMENTAMOS AQUI: O limite do container Docker também sobe para 1G
           memory: 1G
