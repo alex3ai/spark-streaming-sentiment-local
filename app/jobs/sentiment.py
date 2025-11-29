@@ -5,12 +5,13 @@ from pyspark.sql.types import FloatType
 import pandas as pd
 from nltk.sentiment import SentimentIntensityAnalyzer
 
-# Hack para garantir que o python encontre o módulo 'app' dentro do Spark Submit
+# --- CORREÇÃO DE PATH E IMPORTS ---
+# Adiciona '/app' ao path para que o Python "enxergue" os arquivos dentro da pasta montada
 sys.path.append("/app")
 
-# Adicionamos 'noqa: E402' para o linter ignorar que o import não está no topo
-from app.config import settings  # noqa: E402
-from app.schemas.tweet import TWEET_SCHEMA  # noqa: E402
+# Como estamos olhando para dentro de /app, importamos direto (sem o prefixo 'app.')
+from config import settings  # noqa: E402
+from schemas.tweet import TWEET_SCHEMA  # noqa: E402
 
 
 # --- LÓGICA VETORIZADA (Pandas UDF) ---
@@ -23,7 +24,7 @@ def analyze_sentiment(text_series: pd.Series) -> pd.Series:
         try:
             # Retorna o score composto (-1.0 a 1.0)
             return sid.polarity_scores(str(text))["compound"]
-        except Exception:  # Correção E722: Exception específica
+        except Exception:
             return 0.0
 
     # Aplica a função na série inteira do Pandas (eficiência de memória)
