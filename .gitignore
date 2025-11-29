@@ -7,4 +7,7 @@ GEMINI.md
 generate_context_summary.sh
 project_summary_for_ai.txt
 .venv/
+# Build artifacts
+build/
+dist/
 *.egg-info/

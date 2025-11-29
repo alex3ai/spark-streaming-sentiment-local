@@ -1,8 +1,14 @@
 import time
 import json
 import random
+import logging
 from kafka import KafkaProducer
-from app.config import settings  # <--- Importando a configuração centralizada
+from faker import Faker
+from app.config import settings
+
+# Setup básico de logs
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logger = logging.getLogger(__name__)
 
 
 def create_producer():
@@ -10,35 +16,41 @@ def create_producer():
         producer = KafkaProducer(
             bootstrap_servers=settings.KAFKA_BOOTSTRAP_SERVERS, value_serializer=lambda v: json.dumps(v).encode("utf-8")
         )
-        print(f"✅ Conectado ao Kafka em {settings.KAFKA_BOOTSTRAP_SERVERS}")
+        logger.info(f"✅ Conectado ao Kafka em {settings.KAFKA_BOOTSTRAP_SERVERS}")
         return producer
     except Exception as e:
-        print(f"❌ Erro ao conectar no Kafka: {e}")
+        logger.error(f"❌ Erro ao conectar no Kafka: {e}")
         return None
 
 
-def generate_transaction():
-    from faker import Faker  # Usando a lib Faker que instalamos
-
+def generate_tweet():
     fake = Faker()
+    platforms = ["Android", "iPhone", "Web", "API"]
+
     return {
-        "transaction_id": fake.uuid4(),
-        "amount": round(random.uniform(10.0, 5000.0), 2),
-        "currency": random.choice(["BRL", "USD", "EUR"]),
-        "city": fake.city(),
-        "timestamp": int(time.time()),
+        "id": fake.uuid4(),
+        "user": fake.user_name(),
+        # Gera frases com tamanho variável para testar o processamento
+        "text": fake.sentence(nb_words=random.randint(5, 20)),
+        "platform": random.choice(platforms),
+        "timestamp": time.time(),
     }
 
 
 if __name__ == "__main__":
     producer = create_producer()
     if producer:
-        print(f"🚀 Enviando dados para o tópico '{settings.KAFKA_TOPIC_INPUT}'...")
+        logger.info(f"🚀 Iniciando stream de tweets para: '{settings.KAFKA_TOPIC_INPUT}'")
         try:
             while True:
-                data = generate_transaction()
-                producer.send(settings.KAFKA_TOPIC_INPUT, data)
-                print(f"📤 Enviado: {data}")
-                time.sleep(1)
+                tweet = generate_tweet()
+                producer.send(settings.KAFKA_TOPIC_INPUT, tweet)
+
+                # Log simplificado para não poluir demais o terminal
+                logger.info(f"📤 Tweet enviado de @{tweet['user']}")
+
+                # Simula variação de tráfego
+                time.sleep(random.uniform(0.1, 0.5))
         except KeyboardInterrupt:
+            logger.info("🛑 Parando produtor...")
             producer.close()
