@@ -4,3 +4,7 @@ data/
 !data/.gitkeep
 .env
 GEMINI.md
+generate_context_summary.sh
+project_summary_for_ai.txt
+.venv/
+*.egg-info/
