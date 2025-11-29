@@ -1,17 +1,20 @@
 # 1. Base Image
 FROM python:3.10-slim-bookworm
 
-# Variáveis de Versão
 ENV SPARK_VERSION=3.5.0
 ENV HADOOP_VERSION=3
 ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+# Define onde o NLTK vai procurar os dados (Mesmo caminho do config.py)
+ENV NLTK_DATA=/opt/spark/nltk_data
 
-# 2. Instalação do Java e utilitários
+# 2. Instalação do Java e utilitários essenciais
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     openjdk-17-jre-headless \
     curl \
-    procps && \
+    procps \
+    build-essential \
+    python3-dev && \
     rm -rf /var/lib/apt/lists/*
 
 # 3. Download e Instalação do Spark
@@ -26,19 +29,24 @@ ENV SPARK_HOME=/opt/spark
 ENV PATH=$PATH:$SPARK_HOME/bin
 ENV PYTHONPATH=$SPARK_HOME/python:$SPARK_HOME/python/lib/py4j-0.10.9.7-src.zip
 
-# 5. Instalação de Dependências e do Projeto
+# 5. Instalação de Dependências e Aplicação
 WORKDIR /app
 
-# Copia o arquivo de configuração de dependências
+# Copia os arquivos de metadados do projeto
 COPY pyproject.toml .
+# É boa prática copiar o README se ele for referenciado no toml, mas opcional se não for
+COPY README.md .
 
-# --- CORREÇÃO ---
-# Precisamos copiar a pasta 'app' ANTES de rodar o pip install,
-# pois o pyproject.toml diz que o código fonte está nela.
+# [CORREÇÃO CRÍTICA]
+# O comando 'pip install .' lê o pyproject.toml, que diz que o código está em 'app'.
+# Portanto, a pasta 'app' PRECISA existir antes do pip rodar.
 COPY app ./app
 
-# Instala todas as libs (pandas, nltk, faker...) e o próprio pacote app
+# Instala as dependências (pyspark, nltk, etc) E o pacote local 'app'
 RUN pip install --no-cache-dir .
 
-# Comando padrão
+# [SENIOR MOVE] Baixamos o léxico do VADER
+# Isso deve rodar DEPOIS do pip install, pois requer o módulo 'nltk' instalado
+RUN python -m nltk.downloader -d ${NLTK_DATA} vader_lexicon
+
 CMD ["/bin/bash"]
