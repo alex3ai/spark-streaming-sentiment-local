@@ -1,4 +1,5 @@
 import sys
+import nltk
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import from_json, col, pandas_udf
 from pyspark.sql.types import FloatType
@@ -6,18 +7,24 @@ import pandas as pd
 from nltk.sentiment import SentimentIntensityAnalyzer
 
 # --- CORREÇÃO DE PATH E IMPORTS ---
-# Adiciona '/app' ao path para que o Python "enxergue" os arquivos dentro da pasta montada
 sys.path.append("/app")
-
-# Como estamos olhando para dentro de /app, importamos direto (sem o prefixo 'app.')
 from config import settings  # noqa: E402
 from schemas.tweet import TWEET_SCHEMA  # noqa: E402
+
+# --- NLTK FAILSAFE (CRÍTICO) ---
+# Garante que o léxico existe localmente antes de qualquer processamento.
+# Isso roda tanto no Driver quanto (potencialmente) na inicialização do Worker.
+try:
+    nltk.data.find("sentiment/vader_lexicon.zip")
+except LookupError:
+    nltk.download("vader_lexicon", quiet=True)
 
 
 # --- LÓGICA VETORIZADA (Pandas UDF) ---
 @pandas_udf(FloatType())
 def analyze_sentiment(text_series: pd.Series) -> pd.Series:
-    # Inicializa o analisador APENAS nos workers
+    # Inicializa o analisador APENAS dentro da execução do worker.
+    # Como o download foi garantido acima, isso não deve falhar.
     sid = SentimentIntensityAnalyzer()
 
     def get_score(text):
@@ -32,7 +39,7 @@ def analyze_sentiment(text_series: pd.Series) -> pd.Series:
 
 
 def main():
-    # Inicializa Spark com Arrow habilitado (Crítico para Pandas UDF)
+    # Inicializa Spark com Arrow habilitado
     spark = (
         SparkSession.builder.appName(settings.SPARK_APP_NAME)
         .config("spark.sql.execution.arrow.pyspark.enabled", "true")
@@ -57,22 +64,23 @@ def main():
     df_processed = df_parsed.withColumn("sentiment_score", analyze_sentiment(col("text")))
 
     # 4. Preparação para o Kafka (Serialização)
-    # O Kafka aceita bytes ou strings. Precisamos converter nosso Struct para JSON String.
     df_kafka_output = df_processed.selectExpr(
-        "CAST(id AS STRING) AS key",  # A chave será o ID do tweet
-        "to_json(struct(*)) AS value",  # O valor será o JSON completo com o score
+        "CAST(id AS STRING) AS key",
+        "to_json(struct(*)) AS value",
     )
 
-    # 5. Output: Escreve de volta no Kafka (Sink)
+    # 5. Output: Escreve de volta no Kafka
     query = (
         df_kafka_output.writeStream.outputMode("append")
         .format("kafka")
         .option("kafka.bootstrap.servers", settings.KAFKA_BOOTSTRAP_SERVERS)
         .option("topic", settings.KAFKA_TOPIC_OUTPUT)
-        # CRÍTICO: Checkpoint garante tolerância a falhas.
-        # Se o container cair, ele volta a ler exatamente de onde parou.
         .option("checkpointLocation", "/data/checkpoints/sentiment_job_v1")
         .start()
     )
 
     query.awaitTermination()
+
+
+if __name__ == "__main__":
+    main()

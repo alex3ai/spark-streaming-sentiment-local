@@ -32,19 +32,23 @@ RUN curl -O https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/spark-$
     mv spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION} /opt/spark && \
     rm spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz
 
-# 4. Instalação de Dependências Python e Aplicação
+# 4. Instalação de Dependências Python
 WORKDIR /app
 
 # SRE Best Practice:
-# Instalamos as libs explicitamente primeiro para garantir que o container funcione
-# mesmo se o pyproject.toml ainda não estiver 100% configurado.
+# Instalamos as libs explicitamente.
+# FIX CRÍTICO: "numpy<2.0.0" impede que o pip instale o Numpy 2.0,
+# que causa falhas silenciosas (crashes) no Spark 3.5.0 devido a incompatibilidade binária.
 RUN pip install --no-cache-dir \
     pyspark==${SPARK_VERSION} \
     textblob \
     kafka-python \
     pydantic \
     pydantic-settings \
-    nltk
+    nltk \
+    pandas \
+    pyarrow \
+    "numpy<2.0.0"
 
 # Copia metadados se existirem (para futuro uso com Poetry/setuptools)
 # O "|| true" garante que o build não falhe se você ainda não criou o arquivo

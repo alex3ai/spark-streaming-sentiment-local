@@ -1,15 +1,13 @@
 services:
-  # --- Apache Kafka Official (KRaft Mode + Dual Listeners) ---
+  # --- Apache Kafka Official (KRaft Mode) ---
   kafka:
     image: apache/kafka:3.7.0
     container_name: kafka
     hostname: kafka
     ports:
-      - "9092:9092" # Acesso interno
-      - "9094:9094" # Acesso externo
+      - "9092:9092"
+      - "9094:9094"
     volumes:
-      # SRE: Persistência dos dados do Kafka (Tópicos/Mensagens)
-      # Isso garante que as mensagens não sumam ao reiniciar o container
       - ./kafka_data:/var/lib/kafka/data
     environment:
       KAFKA_NODE_ID: 1
@@ -37,6 +35,7 @@ services:
       context: .
       dockerfile: infra/Dockerfile
     container_name: spark-master
+    hostname: spark-master
     init: true
     command: /opt/spark/bin/spark-class org.apache.spark.deploy.master.Master
     ports:
@@ -46,12 +45,15 @@ services:
       - ./app:/app
       - ./data:/data
     environment:
+      # SRE FIX: Networking. Sobrescreve o config.py para usar a rede interna do Docker
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      # Memória ajustada para evitar OOM
       - SPARK_DAEMON_MEMORY=512m
     deploy:
       resources:
         limits:
-          cpus: '0.50'
-          memory: 1G
+          cpus: '1.0'
+          memory: 1536M
 
   # --- Spark Worker ---
   spark-worker:
@@ -59,6 +61,7 @@ services:
       context: .
       dockerfile: infra/Dockerfile
     container_name: spark-worker
+    hostname: spark-worker
     init: true
     command: /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077
     depends_on:
@@ -66,7 +69,9 @@ services:
     environment:
       - SPARK_MODE=worker
       - SPARK_WORKER_CORES=1
-      - SPARK_WORKER_MEMORY=1G
+      # SRE FIX: Networking. Sobrescreve o config.py para usar a rede interna do Docker
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - SPARK_WORKER_MEMORY=512m
     volumes:
       - ./app:/app
       - ./data:/data
@@ -74,4 +79,4 @@ services:
       resources:
         limits:
           cpus: '1.0'
-          memory: 1G
+          memory: 1536M
