@@ -35,6 +35,10 @@ RUN curl -O https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/spark-$
 # 4. Instalação de Dependências Python
 WORKDIR /app
 
+COPY pyproject.toml .
+COPY README.md .
+COPY app ./app
+
 # SRE Best Practice:
 # Instalamos as libs explicitamente.
 # FIX CRÍTICO: "numpy<2.0.0" impede que o pip instale o Numpy 2.0,
@@ -42,7 +46,7 @@ WORKDIR /app
 RUN pip install --no-cache-dir \
     pyspark==${SPARK_VERSION} \
     textblob \
-    kafka-python \
+    kafka-python-ng \
     pydantic \
     pydantic-settings \
     nltk \
