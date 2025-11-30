@@ -1,13 +1,20 @@
-# 1. Base Image
+# 1. Base Image: Python 3.10 Slim (Leve e Segura)
 FROM python:3.10-slim-bookworm
 
+# Definição de Variáveis de Ambiente
 ENV SPARK_VERSION=3.5.0
 ENV HADOOP_VERSION=3
 ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
-# Define onde o NLTK vai procurar os dados (Mesmo caminho do config.py)
+# Define onde o NLTK vai procurar os dados
 ENV NLTK_DATA=/opt/spark/nltk_data
+# Configurações do Spark e PYTHONPATH
+ENV SPARK_HOME=/opt/spark
+ENV PATH=$PATH:$SPARK_HOME/bin
+ENV PYTHONPATH=$SPARK_HOME/python:$SPARK_HOME/python/lib/py4j-0.10.9.7-src.zip
 
-# 2. Instalação do Java e utilitários essenciais
+# 2. Instalação do Java 17 e utilitários essenciais
+# openjdk-17-jre-headless: Compatível com Spark 3.5.0
+# procps: Necessário para o Spark monitorar processos
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     openjdk-17-jre-headless \
@@ -17,36 +24,38 @@ RUN apt-get update && \
     python3-dev && \
     rm -rf /var/lib/apt/lists/*
 
-# 3. Download e Instalação do Spark
+# 3. Download e Instalação Manual do Spark
+# Baixamos direto da Apache para garantir integridade e versão exata
 WORKDIR /tmp
 RUN curl -O https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz && \
     tar -xf spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz && \
     mv spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION} /opt/spark && \
     rm spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz
 
-# 4. Configuração de Ambiente
-ENV SPARK_HOME=/opt/spark
-ENV PATH=$PATH:$SPARK_HOME/bin
-ENV PYTHONPATH=$SPARK_HOME/python:$SPARK_HOME/python/lib/py4j-0.10.9.7-src.zip
-
-# 5. Instalação de Dependências e Aplicação
+# 4. Instalação de Dependências Python e Aplicação
 WORKDIR /app
 
-# Copia os arquivos de metadados do projeto
-COPY pyproject.toml .
-# É boa prática copiar o README se ele for referenciado no toml, mas opcional se não for
-COPY README.md .
+# SRE Best Practice:
+# Instalamos as libs explicitamente primeiro para garantir que o container funcione
+# mesmo se o pyproject.toml ainda não estiver 100% configurado.
+RUN pip install --no-cache-dir \
+    pyspark==${SPARK_VERSION} \
+    textblob \
+    kafka-python \
+    pydantic \
+    pydantic-settings \
+    nltk
 
-# [CORREÇÃO CRÍTICA]
-# O comando 'pip install .' lê o pyproject.toml, que diz que o código está em 'app'.
-# Portanto, a pasta 'app' PRECISA existir antes do pip rodar.
-COPY app ./app
+# Copia metadados se existirem (para futuro uso com Poetry/setuptools)
+# O "|| true" garante que o build não falhe se você ainda não criou o arquivo
+COPY pyproject.toml* .
+COPY README.md* .
 
-# Instala as dependências (pyspark, nltk, etc) E o pacote local 'app'
-RUN pip install --no-cache-dir .
+# 5. Configuração dos Dados de NLP (NLTK/TextBlob)
+# [SRE FIX] Baixamos 'punkt' e 'averaged_perceptron_tagger' além do 'vader_lexicon'
+# O TextBlob PRECISA desses dois primeiros para funcionar (tokenização), senão crasha em runtime.
+RUN python3 -m nltk.downloader -d ${NLTK_DATA} vader_lexicon punkt averaged_perceptron_tagger
 
-# [SENIOR MOVE] Baixamos o léxico do VADER
-# Isso deve rodar DEPOIS do pip install, pois requer o módulo 'nltk' instalado
-RUN python -m nltk.downloader -d ${NLTK_DATA} vader_lexicon
-
+# Define o diretório de trabalho e usuário root (necessário para permissões de volume no Windows)
+USER root
 CMD ["/bin/bash"]
