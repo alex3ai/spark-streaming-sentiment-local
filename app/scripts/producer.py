@@ -4,6 +4,8 @@ import random
 import logging
 from kafka import KafkaProducer
 from faker import Faker
+
+# Import absoluto correto
 from app.config import settings
 
 # Setup básico de logs
@@ -14,7 +16,10 @@ logger = logging.getLogger(__name__)
 def create_producer():
     try:
         producer = KafkaProducer(
-            bootstrap_servers=settings.KAFKA_BOOTSTRAP_SERVERS, value_serializer=lambda v: json.dumps(v).encode("utf-8")
+            bootstrap_servers=settings.KAFKA_BOOTSTRAP_SERVERS,
+            value_serializer=lambda v: json.dumps(v).encode("utf-8"),
+            # SRE FIX: API Version forçada para evitar erro de handshake no Windows
+            api_version=(2, 8, 1),
         )
         logger.info(f"✅ Conectado ao Kafka em {settings.KAFKA_BOOTSTRAP_SERVERS}")
         return producer
@@ -30,7 +35,6 @@ def generate_tweet():
     return {
         "id": fake.uuid4(),
         "user": fake.user_name(),
-        # Gera frases com tamanho variável para testar o processamento
         "text": fake.sentence(nb_words=random.randint(5, 20)),
         "platform": random.choice(platforms),
         "timestamp": time.time(),
@@ -38,7 +42,9 @@ def generate_tweet():
 
 
 if __name__ == "__main__":
+    # CORREÇÃO AQUI: Chamamos create_producer, não create_consumer
     producer = create_producer()
+
     if producer:
         logger.info(f"🚀 Iniciando stream de tweets para: '{settings.KAFKA_TOPIC_INPUT}'")
         try:
@@ -46,7 +52,6 @@ if __name__ == "__main__":
                 tweet = generate_tweet()
                 producer.send(settings.KAFKA_TOPIC_INPUT, tweet)
 
-                # Log simplificado para não poluir demais o terminal
                 logger.info(f"📤 Tweet enviado de @{tweet['user']}")
 
                 # Simula variação de tráfego

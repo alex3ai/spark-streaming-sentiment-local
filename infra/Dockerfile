@@ -10,7 +10,7 @@ ENV NLTK_DATA=/opt/spark/nltk_data
 # Configurações do Spark e PYTHONPATH
 ENV SPARK_HOME=/opt/spark
 ENV PATH=$PATH:$SPARK_HOME/bin
-ENV PYTHONPATH=$SPARK_HOME/python:$SPARK_HOME/python/lib/py4j-0.10.9.7-src.zip
+ENV PYTHONPATH=$SPARK_HOME/python:$SPARK_HOME/python/lib/py4j-0.10.9.7-src.zip:/app
 
 # 2. Instalação do Java 17 e utilitários essenciais
 # openjdk-17-jre-headless: Compatível com Spark 3.5.0

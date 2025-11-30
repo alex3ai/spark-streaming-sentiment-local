@@ -6,14 +6,17 @@ from pyspark.sql.types import FloatType
 import pandas as pd
 from nltk.sentiment import SentimentIntensityAnalyzer
 
-# --- CORREÇÃO DE PATH E IMPORTS ---
+# --- FIX DE PATH PARA O SPARK ---
+# Adiciona a pasta /app ao path.
+# Isso faz com que 'config.py' e a pasta 'schemas' sejam vistos como raiz.
 sys.path.append("/app")
+
+# IMPORTANTE: Aqui não usamos "from app.config", usamos direto "from config"
+# pois já estamos dentro de /app graças ao sys.path.append acima.
 from config import settings  # noqa: E402
 from schemas.tweet import TWEET_SCHEMA  # noqa: E402
 
-# --- NLTK FAILSAFE (CRÍTICO) ---
-# Garante que o léxico existe localmente antes de qualquer processamento.
-# Isso roda tanto no Driver quanto (potencialmente) na inicialização do Worker.
+# --- NLTK FAILSAFE ---
 try:
     nltk.data.find("sentiment/vader_lexicon.zip")
 except LookupError:
@@ -23,23 +26,18 @@ except LookupError:
 # --- LÓGICA VETORIZADA (Pandas UDF) ---
 @pandas_udf(FloatType())
 def analyze_sentiment(text_series: pd.Series) -> pd.Series:
-    # Inicializa o analisador APENAS dentro da execução do worker.
-    # Como o download foi garantido acima, isso não deve falhar.
     sid = SentimentIntensityAnalyzer()
 
     def get_score(text):
         try:
-            # Retorna o score composto (-1.0 a 1.0)
             return sid.polarity_scores(str(text))["compound"]
         except Exception:
             return 0.0
 
-    # Aplica a função na série inteira do Pandas (eficiência de memória)
     return text_series.apply(get_score)
 
 
 def main():
-    # Inicializa Spark com Arrow habilitado
     spark = (
         SparkSession.builder.appName(settings.SPARK_APP_NAME)
         .config("spark.sql.execution.arrow.pyspark.enabled", "true")
@@ -48,7 +46,7 @@ def main():
 
     spark.sparkContext.setLogLevel("WARN")
 
-    # 1. Leitura do Stream Kafka
+    # 1. Leitura
     df_raw = (
         spark.readStream.format("kafka")
         .option("kafka.bootstrap.servers", settings.KAFKA_BOOTSTRAP_SERVERS)
@@ -57,19 +55,18 @@ def main():
         .load()
     )
 
-    # 2. Parsing (JSON -> Colunas Tipadas)
+    # 2. Parsing
     df_parsed = df_raw.select(from_json(col("value").cast("string"), TWEET_SCHEMA).alias("data")).select("data.*")
 
-    # 3. Transformação (IA/ML Application)
+    # 3. Processamento
     df_processed = df_parsed.withColumn("sentiment_score", analyze_sentiment(col("text")))
 
-    # 4. Preparação para o Kafka (Serialização)
+    # 4. Saída
     df_kafka_output = df_processed.selectExpr(
         "CAST(id AS STRING) AS key",
         "to_json(struct(*)) AS value",
     )
 
-    # 5. Output: Escreve de volta no Kafka
     query = (
         df_kafka_output.writeStream.outputMode("append")
         .format("kafka")

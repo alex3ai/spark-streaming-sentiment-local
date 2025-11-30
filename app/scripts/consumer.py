@@ -25,6 +25,8 @@ def create_consumer():
             auto_offset_reset="latest",
             value_deserializer=lambda x: json.loads(x.decode("utf-8")),
             group_id="sentiment-printer-group",
+            # SRE FIX: Força versão para estabilidade no Windows
+            api_version=(2, 8, 1),
         )
         logger.info(f" Conectado aos brokers: {settings.KAFKA_BOOTSTRAP_SERVERS}")
         logger.info(f" Ouvindo tópico: {settings.KAFKA_TOPIC_OUTPUT}")
