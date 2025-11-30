@@ -11,3 +11,4 @@ project_summary_for_ai.txt
 build/
 dist/
 *.egg-info/
+app/scripts/generate_docs.sh

@@ -4,7 +4,7 @@
 # SCRIPT: generate_context_summary.sh
 # DESCRIÇÃO: Gera um arquivo único contendo a estrutura e o conteúdo dos arquivos
 #            do projeto para facilitar a análise por IAs (ChatGPT, Gemini, Claude).
-# AUTOR: Lab Engenharia de Dados - Projeto 12 (S1v2)
+# AUTOR: Lab Engenharia de Dados - Projeto 12 (S2v2)
 # DATA: $(date +%Y-%m-%d)
 # ==============================================================================
 
@@ -26,6 +26,7 @@ echo "" >> "$OUTPUT_FILE"
 # Verifica se o comando 'tree' existe
 if command -v tree &> /dev/null; then
     # Ignora pastas de controle de versão, cache, builds e dados voláteis
+    # Adicionado: .venv, build, data, kafka_data, img, egg-info
     tree -a -I '.git|.venv|venv|__pycache__|.pytest_cache|.mypy_cache|build|dist|*.egg-info|data|kafka_data|img|.vscode|.idea' >> "$OUTPUT_FILE"
 else
     # Fallback robusto para 'find' caso não tenha 'tree'
@@ -60,7 +61,8 @@ FILES_TO_READ=$(find . -type f \
     -o -name "*.md" \
     -o -name ".editorconfig" \
     -o -name ".gitignore" \
-    -o -name ".flake8" \) \
+    -o -name ".flake8" \
+    -o -name "LICENSE" \) \
     -not -path './.git/*' \
     -not -path './.venv/*' \
     -not -path './venv/*' \
@@ -70,6 +72,7 @@ FILES_TO_READ=$(find . -type f \
     -not -path './__pycache__/*' \
     -not -path './data/*' \
     -not -path './kafka_data/*' \
+    -not -path './img/*' \
     -not -name "$OUTPUT_FILE" \
     -not -name "generate_context_summary.sh" \
     -not -name "poetry.lock" \
