@@ -158,12 +158,10 @@ python -m app.scripts.producer
 **O que faz**: Simula um stream contínuo de tweets (5-20 palavras, usuários aleatórios) e envia para `raw-tweets`.
 
 **Saída esperada**:
-```
-✅ Conectado ao Kafka em 127.0.0.1:9094
-🚀 Iniciando stream de tweets para: 'raw-tweets'
-📤 Tweet enviado de @john_doe
-📤 Tweet enviado de @alice_smith
-```
+
+![Producer in Action](https://github.com/alex3ai/spark-streaming-sentiment-local/blob/main/img/producer.png)
+
+*Producer gerando tweets sintéticos em tempo real*
 
 ---
 
@@ -197,14 +195,6 @@ python -m app.scripts.consumer
 
 ![Consumer Output](https://github.com/alex3ai/spark-streaming-sentiment-local/blob/main/img/consumer_printer.png)
 
-
----
-
-#### 🎬 Demonstração Visual
-
-![Producer in Action](https://github.com/alex3ai/spark-streaming-sentiment-local/blob/main/img/producer.png)
-
-*Producer gerando tweets sintéticos em tempo real*
 
 ---
 
@@ -417,3 +407,4 @@ Distribuído sob a licença **MIT**. Veja [LICENSE](LICENSE) para mais informaç
 **⭐ Se este projeto foi útil, considere dar uma estrela!**
 
 </div>
+
