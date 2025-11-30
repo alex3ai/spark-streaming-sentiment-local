@@ -1,20 +1,11 @@
-import sys
 import nltk
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import from_json, col, pandas_udf
 from pyspark.sql.types import FloatType
 import pandas as pd
 from nltk.sentiment import SentimentIntensityAnalyzer
-
-# --- FIX DE PATH PARA O SPARK ---
-# Adiciona a pasta /app ao path.
-# Isso faz com que 'config.py' e a pasta 'schemas' sejam vistos como raiz.
-sys.path.append("/app")
-
-# IMPORTANTE: Aqui não usamos "from app.config", usamos direto "from config"
-# pois já estamos dentro de /app graças ao sys.path.append acima.
-from config import settings  # noqa: E402
-from schemas.tweet import TWEET_SCHEMA  # noqa: E402
+from app.config import settings  # noqa: E402
+from app.schemas.tweet import TWEET_SCHEMA  # noqa: E402
 
 # --- NLTK FAILSAFE ---
 try:
